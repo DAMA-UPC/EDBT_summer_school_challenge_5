@@ -7,49 +7,97 @@
 
 int main( int argc, char** argv ) 
 {
-	if(argc != 2) {
-		printf("Invalid usage\n");
-	}
-	char persons_file_name[256];
-	char knows_file_name[256];
-	sprintf(persons_file_name, "%s/%s", argv[1], "persons.bin");
-	sprintf(knows_file_name, "%s/%s", argv[1], "knows.bin");
+  if(argc != 2) {
+    printf("Invalid usage\n");
+  }
+  char persons_file_name[256];
+  char knows_file_name[256];
+  sprintf(persons_file_name, "%s/%s", argv[1], "person.bin");
+  sprintf(knows_file_name, "%s/%s", argv[1], "knows.bin");
 
-	FILE* persons_file = fopen(persons_file_name, "rb");
-	if( !persons_file ) {
-		fprintf(stderr, "ERROR opening %s\n", persons_file_name);
-		exit(1);
-	}
+  long num_knows = 0;
+  long num_filtered_knows = 0;
 
-	FILE* knows_file = fopen(knows_file_name, "rb");
-	if( !knows_file ) {
-		fprintf(stderr, "ERROR opening %s\n", knows_file_name);
-		exit(1);
-	}
+  FILE* persons_file = fopen(persons_file_name, "rb");
+  if( !persons_file ) {
+    fprintf(stderr, "ERROR opening %s\n", persons_file_name);
+    exit(1);
+  }
 
-	fseek (persons_file, 0, SEEK_END);   // non-portable
-	size_t persons_file_size = ftell (persons_file);
-	long num_persons = persons_file_size / sizeof(PersonIn);
+  FILE* knows_file = fopen(knows_file_name, "rb");
+  if( !knows_file ) {
+    fprintf(stderr, "ERROR opening %s\n", knows_file_name);
+    exit(1);
+  }
 
-/*	PersonIn* persons_in  = (PersonIn*)malloc(persons_file_size);
-	if( !persons_in ) {
-		fprintf(stderr, "ERROR while creating persons array");
-		exit(1);
-	}
-	fread(persons_in, sizeof(PersonIn), num_persons, persons_file);
-	*/
+  fseek (persons_file, 0, SEEK_END);   // non-portable
+  size_t persons_file_size = ftell (persons_file);
+  long num_persons = persons_file_size / sizeof(PersonIn);
+  fseek (persons_file, 0, SEEK_SET);   // non-portable
 
-	int i = 0;
-	for( i = 0; i < num_persons; ++i) {
-		PersonIn person;
-		fread(&person, sizeof(PersonIn), 1, persons_file);
-		if( i % 10000 == 0 ) {
-			printf("Read %d persons. This person id %lu\n", i, person.person_id);
-		}
-	}
+  PersonIn* persons_in  = (PersonIn*)malloc(persons_file_size);
+  if( !persons_in ) {
+    fprintf(stderr, "ERROR while creating persons array");
+    exit(1);
+  }
+  fread(persons_in, sizeof(PersonIn), num_persons, persons_file);
 
-	//free(persons_in);
-	fclose(persons_file);
-	fclose(knows_file);
+  long knows_buffer_size1 = 5000;
+  unsigned int* knows_buffer1 = (unsigned int*)malloc(sizeof(unsigned int)*knows_buffer_size1);
+  long knows_buffer_size2 = 5000;
+  unsigned int* knows_buffer2 = (unsigned int*)malloc(sizeof(unsigned int)*knows_buffer_size2);
+  int i = 0;
+  for( ; i < num_persons; ++i) {
+    /*PersonIn person;
+      fread(&person, sizeof(PersonIn), 1, persons_file);
+     */
+    PersonIn* person = &persons_in[i];
+    if( i % 10000 == 0 ) {
+      printf("Read %d persons. This person id %lu and city %lu\n", i, person->person_id,
+          person->location);
+    }
+
+    fseek(knows_file, SEEK_SET, person->knows_first);
+    if( person->knows_n > knows_buffer_size1 ) {
+      knows_buffer_size1 *= 2;
+      knows_buffer1 = (unsigned int*)realloc(knows_buffer1, knows_buffer_size1);
+    }
+    fread(knows_buffer1, sizeof(unsigned int), person->knows_n, knows_file);
+
+    int j = 0;
+    for( ; j < person->knows_n; ++j) {
+      PersonIn* other = &persons_in[knows_buffer1[j]];
+      num_knows++;
+      if( other->location == person->location ) {
+        fseek(knows_file, SEEK_SET, other->knows_first);
+        if( other->knows_n > knows_buffer_size2 ) {
+          knows_buffer_size2 *= 2;
+          knows_buffer2 = (unsigned int*)realloc(knows_buffer2, knows_buffer_size2);
+        }
+        fread(knows_buffer2, sizeof(unsigned int), other->knows_n, knows_file);
+
+        int k = 0;
+        for(; k < other->knows_n; ++k) {
+          if( knows_buffer2[k] == i ) {
+            break;
+          }
+        }
+
+        if ( k < other->knows_n ) {
+          num_filtered_knows++;
+        }
+      }
+
+    }
+  }
+  free(knows_buffer1);
+  free(knows_buffer2);
+
+  printf("Number of knows: %lu\n", num_knows);
+  printf("Number of filtered knows: %lu\n", num_filtered_knows);
+  printf("Percentage of filtered knows: %f\n", num_filtered_knows*100.0f/num_knows);
+  free(persons_in);
+  fclose(persons_file);
+  fclose(knows_file);
   return 0;
 }
