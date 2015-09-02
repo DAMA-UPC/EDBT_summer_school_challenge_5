@@ -7,7 +7,7 @@
 
 int main( int argc, char** argv ) 
 {
-	if(argc != 1) {
+	if(argc != 2) {
 		printf("Invalid usage\n");
 	}
 	char persons_file_name[256];
