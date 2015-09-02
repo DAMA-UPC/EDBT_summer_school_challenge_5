@@ -16,7 +16,16 @@ int main( int argc, char** argv )
 	sprintf(knows_file_name, "%s/%s", argv[1], "knows.bin");
 
 	FILE* persons_file = fopen(persons_file_name, "rb");
+	if( !persons_file ) {
+		fprintf(stderr, "ERROR opening %s\n", persons_file_name);
+		exit(1);
+	}
+
 	FILE* knows_file = fopen(knows_file_name, "rb");
+	if( !knows_file ) {
+		fprintf(stderr, "ERROR opening %s\n", knows_file_name);
+		exit(1);
+	}
 
 	fseek (persons_file, 0, SEEK_END);   // non-portable
 	size_t persons_file_size = ftell (persons_file);
