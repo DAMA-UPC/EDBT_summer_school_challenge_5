@@ -1,8 +1,8 @@
 
 
 #include "reorg.h"
-#include "stdin.h"
-#include "stdlib.h"
+#include <stdlib.h>
+#include <stdio.h>
 
 int main( int argc, char** argv ) 
 {
@@ -19,7 +19,7 @@ int main( int argc, char** argv )
 	long num_persons = persons_file_size / sizeof(PersonIn);
 
 	PersonIn* persons_in  = (PersonIn*)malloc(persons_file_size);
-	fread(persons_in, sizeof(PersonIn), num_pesons, persons_file);
+	fread(persons_in, sizeof(PersonIn), num_persons, persons_file);
 
 	for( int i = 0; i < num_persons; ++i) {
 		PersonIn* person = &persons_in[i];

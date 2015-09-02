@@ -2,5 +2,5 @@
 
 all: reorg
 
-reogr: reorg.c 
-	g++ -c reorg.c -o reorg
+reogr: reorg.h reorg.c 
+	g++ -c reorg.c -o reorg -I. 

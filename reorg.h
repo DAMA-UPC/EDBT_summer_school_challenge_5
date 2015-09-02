@@ -1,5 +1,7 @@
 
 
+#ifndef REORG_H
+#define REORG_H
 
 typedef struct {
 	unsigned long person_id;
@@ -9,7 +11,7 @@ typedef struct {
 	unsigned short knows_n;
 	unsigned long interest_first;
 	unsigned short interest_n;
-} PersonInput;
+} PersonIn;
 
 /*typedef struct {
 	unsigned long person_id;
@@ -18,3 +20,4 @@ typedef struct {
 } Result;
 */
 
+#endif
