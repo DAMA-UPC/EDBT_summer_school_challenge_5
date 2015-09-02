@@ -6,6 +6,9 @@
 
 int main( int argc, char** argv ) 
 {
+	if(argc != 1) {
+		printf("Invalid usage\n");
+	}
 	char persons_file_name[256];
 	char knows_file_name[256];
 	sprintf(persons_file_name, "%s/%s", argv[1], "persons.bin");
@@ -19,6 +22,10 @@ int main( int argc, char** argv )
 	long num_persons = persons_file_size / sizeof(PersonIn);
 
 	PersonIn* persons_in  = (PersonIn*)malloc(persons_file_size);
+	if( !persons_in ) {
+		fprintf(stderr, "ERROR while creating persons array");
+		exit(1);
+	}
 	fread(persons_in, sizeof(PersonIn), num_persons, persons_file);
 
 	int i = 0;
