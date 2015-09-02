@@ -21,7 +21,8 @@ int main( int argc, char** argv )
 	PersonIn* persons_in  = (PersonIn*)malloc(persons_file_size);
 	fread(persons_in, sizeof(PersonIn), num_persons, persons_file);
 
-	for( int i = 0; i < num_persons; ++i) {
+	int i = 0;
+	for( i = 0; i < num_persons; ++i) {
 		PersonIn* person = &persons_in[i];
 		if( i % 10000 == 0 ) {
 			printf("Read %d persons. This person id %lu\n", i, person->person_id);
