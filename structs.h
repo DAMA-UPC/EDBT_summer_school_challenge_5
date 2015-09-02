@@ -13,6 +13,13 @@ typedef struct {
 	unsigned short interest_n;
 } PersonIn;
 
+typedef struct {
+  unsigned short  birthday;
+  unsigned short  location;
+  unsigned int    knows_first;
+  unsigned int    interest_first;
+} Person;
+
 /*typedef struct {
 	unsigned long person_id;
 	unsigned long knows_id;
