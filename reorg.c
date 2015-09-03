@@ -8,14 +8,23 @@
 #include <sys/stat.h>
 #include <stdio.h>
  
+#define EDGE_BUFFER_SIZE 1048576
 
 typedef struct {
   unsigned int person_index;
   unsigned int position;
 } Tuple ;
 
+
+typedef struct {
+  unsigned int tail;
+  unsigned int head;
+} Edge;
+
 PersonIn* in_persons;
 unsigned int* in_knows;
+unsigned int num_persons;
+unsigned int num_knows;
 
 FILE* in_persons_file; 
 FILE* in_knows_file;
@@ -37,9 +46,112 @@ int unsigned_int_comparator( const void* a, const void* b) {
   return ((int)(*(unsigned int*)a)) - ((int)(*(unsigned int*)b));
 }
 
+int edge_tail_comparator( const void* a, const void* b) {
+  int res = ((unsigned long)((Edge*)a)->tail) - ((unsigned long)((Edge*)b)->tail);
+  if(res)
+    res = ((unsigned long)((Edge*)a)->head) - ((unsigned long)((Edge*)b)->head);
+  return res;
+}
+
+int edge_head_comparator( const void* a, const void* b) {
+  int res = ((unsigned long)((Edge*)a)->head) - ((unsigned long)((Edge*)b)->head);
+  if(res)
+    res = ((unsigned long)((Edge*)a)->tail) - ((unsigned long)((Edge*)b)->tail);
+  return res;
+}
+
+/** This function creates a reduced knows file where only reciprocal friends living at the same city are kept **/
+void create_reduced_knows_file(const char* out_knows_file_name, Knows** new_knows_array ) {
+
+  *new_knows_array = (Knows*)malloc(sizeof(Knows)*num_persons);
+  memset(*new_knows_array, 0xff, sizeof(Knows)*num_persons); 
+  FILE* tmp_edge_file = fopen(".tmp_edges", "wb");
+  FILE* tmp_edge_file2 = fopen(".tmp_edges2", "wb");
+  int total_written_edges = 0;
+  int num_edges = 0;
+  Edge* edge_buffer = (Edge*)malloc(sizeof(Edge)*EDGE_BUFFER_SIZE);
+
+  printf("Filtering edge by location");
+  int i = 0;
+  for( ; i < num_persons; ++i) {
+    PersonIn* person = &in_persons[i];
+    unsigned int* knows_person = &in_knows[person->knows_first];
+//    unsigned int num_neighbors_found = 0;
+    int j = 0;
+    for( ;j < person->knows_n; ++j) {
+      unsigned int other_index = knows_person[j];
+      PersonIn* other = &in_persons[other_index];
+      if( other->location == person->location ) {
+        edge_buffer[num_edges].tail = i; 
+        edge_buffer[num_edges].head = other_index; 
+        total_written_edges++;
+        num_edges++;
+        if( num_edges >= EDGE_BUFFER_SIZE ) {
+          fwrite(edge_buffer, sizeof(Edge), num_edges, tmp_edge_file);
+          num_edges = 0;
+        }
+      }
+    }
+  }
+
+  if(num_edges) {
+    fwrite(edge_buffer, sizeof(Edge), num_edges, tmp_edge_file);
+  }
+  free(edge_buffer);
+  fclose(tmp_edge_file);
+
+  printf("Reading filtered edges\n");
+  edge_buffer = (Edge*)malloc(sizeof(Edge)*total_written_edges);
+  tmp_edge_file = fopen(".tmp_edges", "rb");
+  fread(edge_buffer, sizeof(Edge), total_written_edges, tmp_edge_file);
+  fclose(tmp_edge_file);
+  printf("Sorting by head\n");
+  qsort(edge_buffer, total_written_edges, sizeof(Edge), edge_head_comparator);
+  printf("Filtering edges by reciprocity\n");
+  int total_written_edges2 = 0;
+  i = 0;
+  for (; i < total_written_edges; ++i){
+    Edge* edge = &edge_buffer[i];
+    unsigned int n = in_persons[edge->head].knows_n;
+    unsigned int first = in_persons[edge->head].knows_first;
+    unsigned int* knows = &in_knows[first];
+    int j =0;
+    for( ; j < n; ++j) {
+      if( knows[j] == edge->tail ) {
+        fwrite(edge,sizeof(Edge),1,tmp_edge_file2);
+        total_written_edges2++;
+        break;
+      }
+    }
+  }
+  fclose(tmp_edge_file2);
+  tmp_edge_file2 = fopen(".tmp_edges2", "rb");
+  fread(edge_buffer, sizeof(Edge), total_written_edges2, tmp_edge_file2);
+  fclose(tmp_edge_file2);
+
+  printf("Sorting by tail\n");
+  qsort(edge_buffer, total_written_edges2, sizeof(Edge), edge_tail_comparator);
+
+  FILE* out_knows_file = fopen(out_knows_file_name, "wb");
+  i =0;
+  unsigned int current_edge = 0xffffffff;
+  for(;i < total_written_edges2; ++i) {
+    int num_written = 0;
+    current_edge = edge_buffer[i].tail;
+    while(current_edge == edge_buffer[i].tail && i < total_written_edges2){
+      fwrite(&(edge_buffer[i].head), sizeof(unsigned int), 1, out_knows_file);
+      ++i;
+      ++num_written;
+    }
+    (*new_knows_array)[current_edge].n = num_written;
+    (*new_knows_array)[current_edge].first = i-num_written;
+  }
+  fclose(out_knows_file);
+
+}
+
 
 int main( int argc, char** argv ) {
-
   if(argc != 2) {
     printf("Invalid usage\n");
   }
@@ -61,11 +173,6 @@ int main( int argc, char** argv ) {
   sprintf(out_interest_index_file_name, "%s/%s", argv[1], "interest_index.bin");
   sprintf(out_birthday_attr_file_name, "%s/%s", argv[1], "birthday_attr.bin");
   sprintf(out_location_attr_file_name, "%s/%s", argv[1], "location_attr.bin");
-
-  /** Statistics variables **/
-  long num_knows_location = 0;
-  long num_out_knows = 0;
-  long num_out_persons = 0;
 
   /** Openning input and output files **/
   in_persons_file = fopen(in_persons_file_name, "rb");
@@ -125,24 +232,30 @@ int main( int argc, char** argv ) {
   /** Computing number of persons **/
   fseek (in_persons_file, 0, SEEK_END);   
   size_t in_persons_file_size = ftell (in_persons_file);
-  long num_persons = in_persons_file_size / sizeof(PersonIn);
+  num_persons = in_persons_file_size / sizeof(PersonIn);
   fseek (in_persons_file, 0, SEEK_SET);   
 
   /** Computing number of knows **/
   fseek (in_knows_file, 0, SEEK_END);   
   size_t in_knows_file_size = ftell (in_knows_file);
-  long num_knows = in_knows_file_size / sizeof(unsigned int);
+  num_knows = in_knows_file_size / sizeof(unsigned int);
   fseek (in_knows_file, 0, SEEK_SET);   
 
-  /** Loading persons into memory **/
-  /*persons_in  = (PersonIn*)malloc(in_persons_file_size);
-  if( !persons_in ) {
-    fprintf(stderr, "ERROR while creating persons array");
-    exit(1);
-  }
-  fread(persons_in, sizeof(PersonIn), num_persons, in_persons_file);
-  */
   in_persons = (PersonIn*)mmap (NULL, num_persons*sizeof(PersonIn), PROT_READ, MAP_PRIVATE, fileno(in_persons_file), 0);
+  in_knows = (unsigned int*)mmap (NULL, num_knows*sizeof(unsigned int), PROT_READ, MAP_PRIVATE, fileno(in_knows_file), 0);
+
+  Knows* new_knows;
+  create_reduced_knows_file(".filtered_knows", &new_knows);
+
+  munmap(in_knows, num_knows*sizeof(unsigned int));
+  in_knows = (unsigned int*)mmap (NULL, num_knows*sizeof(unsigned int), PROT_READ, MAP_PRIVATE, fileno(in_knows_file), 0);
+  fclose(in_knows_file);
+
+  in_knows_file = fopen(".filtered_knows", "rb");
+  fseek (in_knows_file, 0, SEEK_END);   
+  in_knows_file_size = ftell (in_knows_file);
+  num_knows = in_knows_file_size / sizeof(unsigned int);
+  fseek (in_knows_file, 0, SEEK_SET);   
   in_knows = (unsigned int*)mmap (NULL, num_knows*sizeof(unsigned int), PROT_READ, MAP_PRIVATE, fileno(in_knows_file), 0);
 
   unsigned int* selected_persons_new_index = (unsigned int*) malloc(sizeof(unsigned int)*num_persons);
@@ -150,13 +263,7 @@ int main( int argc, char** argv ) {
   unsigned int* selected_persons_knows_start = (unsigned int*) malloc(sizeof(unsigned int)*num_persons);
   unsigned int* selected_persons_knows_n = (unsigned int*) malloc(sizeof(unsigned int)*num_persons);
 
-  /** Creating knows buffers **/
-/*  long knows_buffer_size1 = 5000;
-  unsigned int* knows_buffer1 = (unsigned int*)malloc(sizeof(unsigned int)*knows_buffer_size1);
-  long knows_buffer_size2 = 5000;
-  unsigned int* knows_buffer2 = (unsigned int*)malloc(sizeof(unsigned int)*knows_buffer_size2);
-  */
-
+  unsigned int num_out_persons = 0;
   int i = 0;
   for( ; i < num_persons; ++i) {
     PersonIn* person = &in_persons[i];
@@ -164,64 +271,28 @@ int main( int argc, char** argv ) {
       printf("Read %d persons. This person id %lu and city %hu\n", i, person->person_id,
           person->location);
     }
-    unsigned int* knows_person = &in_knows[person->knows_first];
+    if( new_knows[i].first != 0xffffffff ) {
+      unsigned int* knows_person = &in_knows[new_knows[i].first];
 
-    /** Resizing knows buffer 1 if necessary **/
-   /* fseek(in_knows_file, person->knows_first*sizeof(unsigned int), SEEK_SET );
-    if( person->knows_n > knows_buffer_size1 ) {
-      knows_buffer_size1 *= 2;
-      knows_buffer1 = (unsigned int*)realloc(knows_buffer1, knows_buffer_size1);
-    }
-    fread(knows_buffer1, sizeof(unsigned int), person->knows_n, in_knows_file);
-    */
-
-    unsigned int num_neighbors_found = 0;
-    int j = 0;
-    for( ;j < person->knows_n; ++j) {
-      unsigned int other_index = knows_person[j];
-      PersonIn* other = &in_persons[other_index];
-      if( other->location == person->location ) {
-        num_knows_location++;
-        unsigned int* knows_other = &in_knows[other->knows_first];
-
-        /** Resizing knows buffer 2 if necessary **/
-       /* fseek(in_knows_file, other->knows_first*sizeof(unsigned int), SEEK_SET );
-        if( other->knows_n > knows_buffer_size2 ) {
-          knows_buffer_size2 *= 2;
-          knows_buffer2 = (unsigned int*)realloc(knows_buffer2, knows_buffer_size2);
-        }
-        fread(knows_buffer2, sizeof(unsigned int), other->knows_n, in_knows_file);
-        */
-
-
-        int k = 0;
-        for(; k < other->knows_n; ++k) {
-          if( knows_other[k] == i ) {
-            num_neighbors_found++;
-            break;
-          }
-        }
-
-        if ( k < other->knows_n ) {
-          if( selected_persons_new_index[i] == 0xffffffff ) {
-            selected_persons_new_index[i] = num_out_persons++; // we increment first because 0 is a reserved number
-          }
-
-          if( selected_persons_new_index[other_index] == 0xffffffff ) {
-            selected_persons_new_index[other_index] = num_out_persons++; // we increment first because 0 is a reserved number
-          }
-
-          unsigned int new_index = selected_persons_new_index[other_index]; // assigning new index to person
-          fwrite(&new_index, sizeof(unsigned int), 1, temp_knows_file);
-          num_out_knows++;
-        }
+      if( selected_persons_new_index[i] == 0xffffffff ) {
+        selected_persons_new_index[i] = num_out_persons++; // we increment first because 0 is a reserved number
       }
+
+      int j = 0;
+      for( ;j < new_knows[i].n; ++j) {
+        unsigned int other_index = knows_person[j];
+
+        if( selected_persons_new_index[other_index] == 0xffffffff ) {
+          selected_persons_new_index[other_index] = num_out_persons++; // we increment first because 0 is a reserved number
+        }
+
+        unsigned int new_index = selected_persons_new_index[other_index]; // assigning new index to person
+        fwrite(&new_index, sizeof(unsigned int), 1, temp_knows_file);
+      }
+      selected_persons_knows_start[i] = new_knows[i].first; // storing the new knows offset 
+      selected_persons_knows_n[i] = new_knows[i].n; 
     }
-    selected_persons_knows_start[i] = num_out_knows; // storing the new knows offset 
-    selected_persons_knows_n[i] = num_out_knows - ( i != 0 ? selected_persons_knows_start[i-1] : 0); 
   }
-//  free(knows_buffer1);
- // free(knows_buffer2);
   fclose(temp_knows_file);
 
   Tuple* selected_persons = (Tuple*)malloc(sizeof(Tuple)*num_out_persons);
@@ -240,7 +311,7 @@ int main( int argc, char** argv ) {
   }
 
 
-  /** translating identifier from the one before sorting to the new one **/
+  // translating identifier from the one before sorting to the new one 
   temp_knows_file = fopen(".tmp_knows", "rb");
   if( !temp_knows_file ) {
     fprintf(stderr, "ERROR opening %s\n", ".tmp_knows");
@@ -265,7 +336,7 @@ int main( int argc, char** argv ) {
 
   i = 0;
   for( ; i < num_out_persons; ++i) {
-    fwrite(&in_persons[selected_persons[i].person_index].person_id, sizeof(unsigned int), 1, out_persons_file);
+    fwrite(&in_persons[selected_persons[i].person_index].person_id, sizeof(unsigned long), 1, out_persons_file);
     fwrite(&in_persons[selected_persons[i].person_index].birthday, sizeof(unsigned short), 1, out_birthday_attr_file);
     Interest interest;
     interest.first = in_persons[selected_persons[i].person_index].interest_first;
@@ -283,11 +354,7 @@ int main( int argc, char** argv ) {
   free(selected_persons_new_index);
   free(selected_persons_knows_start);
   free(selected_persons_knows_n);
-
-  printf("Number of knows: %lu\n", num_knows);
-  printf("Number of knows location: %lu\n", num_knows_location);
-  printf("Number of filtered knows: %lu\n", num_out_knows);
-  printf("Percentage of filtered knows: %f\n", num_out_knows*100.0f/num_knows);
+  free(new_knows);
 
   munmap(in_persons, num_persons*sizeof(PersonIn));
   munmap(in_knows, num_knows*sizeof(unsigned int));
