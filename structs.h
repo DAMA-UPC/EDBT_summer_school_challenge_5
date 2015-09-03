@@ -31,6 +31,15 @@ typedef struct{
 	unsigned short d2;
 }Query;
 
+typedef struct {
+  unsigned int first;
+  unsigned short n;
+} Interest;
+
+typedef struct {
+  unsigned int first;
+  unsigned short n;
+} Knows;
 
 /*typedef struct {
 	unsigned long person_id;
