@@ -20,6 +20,18 @@ typedef struct {
   unsigned int    interest_first;
 } Person;
 
+typedef struct{
+	//Query.id|A1|A2|A3|A4|D1|D2
+	unsigned short  query_id;
+	unsigned short a1;
+	unsigned short a2;
+	unsigned short a3;
+	unsigned short a4;
+	unsigned short d1;
+	unsigned short d2;
+}Query;
+
+
 /*typedef struct {
 	unsigned long person_id;
 	unsigned long knows_id;
