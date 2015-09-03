@@ -265,7 +265,7 @@ int main( int argc, char** argv ) {
 
   i = 0;
   for( ; i < num_out_persons; ++i) {
-    fwrite(&in_persons[selected_persons[i].person_index].person_id, sizeof(unsigned int), 1, out_persons_file);
+    fwrite(&in_persons[selected_persons[i].person_index].person_id, sizeof(unsigned long), 1, out_persons_file);
     fwrite(&in_persons[selected_persons[i].person_index].birthday, sizeof(unsigned short), 1, out_birthday_attr_file);
     Interest interest;
     interest.first = in_persons[selected_persons[i].person_index].interest_first;
