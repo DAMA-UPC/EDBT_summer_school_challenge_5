@@ -41,11 +41,11 @@ typedef struct {
   unsigned short n;
 } Knows;
 
-/*typedef struct {
-	unsigned long person_id;
-	unsigned long knows_id;
-	unsigned char score;
+typedef struct {
+	int query_id;
+	int score;
+	unsigned long p;
+	unsigned long f;
 } Result;
-*/
 
 #endif

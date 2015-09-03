@@ -6,6 +6,24 @@
 #include <sys/types.h>
 #include <stdbool.h>
 unsigned short getDate(char* stringDate); 
+int compare(const void* a,const void* b)
+{
+	Result* r1 = (Result*) a;
+	Result* r2 = (Result*) b;
+
+	int dif_query = r1->query_id - r2->query_id;
+	if(dif_query!=0)
+		return dif_query;
+
+	int dif_score = r1->score - r2->score;
+	if(dif_score!=0)
+		return -dif_score;
+    int dif_p = r1->p-r2->p;
+	if(dif_p!=0)
+		return dif_p;
+	int dif_f = r1->f-r2->f;
+	return dif_f;
+}
 
 int main( int argc, char** argv ) 
 {
@@ -21,40 +39,56 @@ int main( int argc, char** argv )
 	char refined_interest_file_name[256];
 	char interest_file_name[256];
 
+
 	sprintf(persons_file_name, "%s/%s", argv[1], "refined_person.bin");
-	sprintf(refined_knows_file_name, "%s/%s", argv[1], "refined_knows.bin");
-	sprintf(knows_file_name, "%s/%s", argv[1], "knows.bin");
+	sprintf(refined_knows_file_name, "%s/%s", argv[1], "knows_index.bin");
+	sprintf(knows_file_name, "%s/%s", argv[1], "refined_knows.bin");
 	sprintf(interest_file_name,"%s%s",argv[1],"interest.bin");
-	sprintf(birthday_file_name,"%s%s",argv[1],"refined_birthday.bin");
-	sprintf(refined_interest_file_name,"%s%s", argv[1],"refined_interest.bin");
+	sprintf(birthday_file_name,"%s%s",argv[1],"birthday_attr.bin");
+	sprintf(refined_interest_file_name,"%s%s", argv[1],"interest_index.bin");
+
+	long num_persons;
 
 	FILE* persons_file = fopen(persons_file_name, "rb");
 	if( !persons_file ) {
 		fprintf(stderr, "ERROR opening %s\n", persons_file_name);
 		exit(1);
 	}
-	else printf("%s opened correctly \n", persons_file_name);
+	/* else printf("%s opened correctly \n", persons_file_name); */
 
 	FILE* refined_knows_file = fopen(refined_knows_file_name, "rb");
 	if( !refined_knows_file ) {
 		fprintf(stderr, "ERROR opening %s\n", refined_knows_file_name);
 		exit(1);
 	}
-	else printf("%s opened correctly \n", refined_knows_file_name);
+	/* else printf("%s opened correctly \n", refined_knows_file_name); */
 
 	FILE* knows_file = fopen(knows_file_name, "rb");
 	if( !knows_file ) {
 		fprintf(stderr, "ERROR opening %s\n", knows_file_name);
 		exit(1);
 	}
-	else printf("%s opened correctly \n", knows_file_name);
+	/* else printf("%s opened correctly \n", knows_file_name); */
 
 	FILE* interest_file = fopen(interest_file_name, "rb");
 	if( !refined_knows_file ) {
 		fprintf(stderr, "ERROR opening %s\n", interest_file_name);
 		exit(1);
 	}
-	else printf("%s opened correctly \n", interest_file_name);
+	/* else printf("%s opened correctly \n", interest_file_name); */
+
+	fseek(persons_file,0,SEEK_END);
+	size_t persons_file_size = ftell(persons_file);
+	fseek(persons_file,0,SEEK_SET);
+	num_persons= persons_file_size / sizeof(unsigned long);
+	/* printf("Number Persons: %ld\n", num_persons); */
+	unsigned long* persons  = (unsigned long*)malloc(persons_file_size);
+	if( !persons ) {
+		fprintf(stderr, "ERROR while creating persons array");
+		exit(1);
+	}
+	fread(persons, sizeof(unsigned long), num_persons, persons_file); 
+
 
 
 
@@ -65,7 +99,7 @@ int main( int argc, char** argv )
 		fprintf(stderr, "ERROR opening %s\n", queries_file_name);
 		exit(1);
 	}
-	else printf("%s opened correctly \n", queries_file_name);
+	/* else printf("%s opened correctly \n", queries_file_name); */
 
 
 	char query[256];
@@ -97,7 +131,7 @@ int main( int argc, char** argv )
 		if (numQueries==theoretical_num_queries)
 		{
 			theoretical_num_queries=numQueries;
-			queries = (Query*)realloc(queries,theoretical_num_queries);
+			queries = (Query*)realloc(queries,theoretical_num_queries*sizeof(Query));
 		}
 		queries[numQueries++]=q;
 	}
@@ -113,7 +147,6 @@ int main( int argc, char** argv )
 	} 
 	fseek (birthday_file, 0, SEEK_END);   // non-portable
 	size_t birthday_file_size = ftell (birthday_file);
-	long num_persons = birthday_file_size / sizeof(unsigned short);
 	fseek (birthday_file, 0, SEEK_SET);   // non-portable
 
 	unsigned short* birthdays = (unsigned short*) malloc (birthday_file_size);
@@ -124,7 +157,7 @@ int main( int argc, char** argv )
 	}
 	fread(birthdays,sizeof(unsigned short),num_persons,birthday_file);
 
- 	FILE* refined_interest_file = fopen(refined_interest_file_name, "rb");
+	FILE* refined_interest_file = fopen(refined_interest_file_name, "rb");
 	if( !refined_interest_file ) {
 		fprintf(stderr, "ERROR opening %s\n", refined_interest_file_name);
 		exit(1);
@@ -136,7 +169,7 @@ int main( int argc, char** argv )
 	Interest* refined_interests = (Interest*) malloc (refined_interest_file_size);
 	if(!refined_interests)
 	{
-		fprintf(stderr,"ERROR while creating birthdays array");
+		fprintf(stderr,"ERROR while creating refined_interests array");
 		exit(1);
 	}
 	fread(refined_interests,sizeof(Interest),num_persons,refined_interest_file);
@@ -149,11 +182,11 @@ int main( int argc, char** argv )
 	Knows* refined_knows = (Knows*) malloc (refined_knows_file_size);
 	if(!refined_interests)
 	{
-		fprintf(stderr,"ERROR while creating birthdays array");
+		fprintf(stderr,"ERROR while creating refined_knows array");
 		exit(1);
 	}
 	fread(refined_knows,sizeof(Knows),num_persons,refined_knows_file);
-     
+
 
 
 	int birthday_offset;
@@ -165,43 +198,49 @@ int main( int argc, char** argv )
 	unsigned short* interest_buffer2 = (unsigned short*)malloc(sizeof(unsigned short)*interest_buffer_size2);
 	int knows_buffer_size=20;
 	unsigned short* knows_buffer = (unsigned short*)malloc(sizeof(unsigned short)*knows_buffer_size);
+                                                                      
+	int num_results=3000;
+	int current_num_results=0;
+	Result* results = (Result*) malloc(sizeof(Result)*num_results);
 	for(      ;i<numQueries;i++)
 	{
 		Query q = queries[i];
-		printf("Resolving query id: %u\n", q.query_id);
+		/* printf("Resolving query id: %u; date_1= %hu, date_2 = %hu\n", q.query_id,q.d1,q.d2); */
+
 
 		first_found=-1;
 		last_found = -1 ;
-
 		//Identificar el conjunt de persones dins el rang  
 		for(birthday_offset = 0 ; birthday_offset<num_persons; birthday_offset++)
 		{
 			if(first_found==-1 && birthdays[birthday_offset]>=q.d1)
 				first_found = birthday_offset;
-			if(last_found==-1 && birthdays[birthday_offset]>q.d2)
+			if(last_found==-1 && birthdays[birthday_offset]>q.d2)  
 			{
 				last_found=birthday_offset-1;
 				break;
 			}
 		}
-		printf ("First Person : %d\nSecond Person: %d\n\n",first_found, last_found);
-		int person_offset = first_found;
+		if(last_found==-1 && birthday_offset == num_persons)
+			last_found=birthday_offset-1;
+		/* printf ("First Person : %d\nSecond Person: %d\n\n",first_found, last_found); */
+		int person_offset;
 		//Per cada persona, calcular l'score
-		for (;person_offset<last_found;person_offset++)
+		for (person_offset=first_found;person_offset<last_found;person_offset++)
 		{            
 			bool valid_person=true;
-			long score=0;
+			int score=0;
 			Interest* interest = &refined_interests[person_offset];                        
 			if(interest->n > interest_buffer_size)                                                  
 			{
-				interest_buffer_size*=interest->n;
-				interest_buffer = (unsigned short* ) realloc ( interest_buffer, interest_buffer_size);
+				interest_buffer_size=interest->n;
+				interest_buffer = (unsigned short* ) realloc ( interest_buffer, interest_buffer_size*sizeof(unsigned short));
 			}
 			fseek(interest_file,interest->first*sizeof(unsigned short),SEEK_SET);
 			fread(interest_buffer, sizeof(unsigned short), interest->n, interest_file);
 			int interest_offset = 0 ; 
 
-		 //   printf("Interests of person: %d\n",person_offset);
+			//   printf("Interests of person: %d\n",person_offset);
 			for(; interest_offset < interest->n ;interest_offset++)
 			{   
 				if(interest_buffer[interest_offset]==q.a1)
@@ -210,85 +249,86 @@ int main( int argc, char** argv )
 					break;
 				}      
 				else
-					if(interest_buffer[interest_offset]==q.a2)
+					if(interest_buffer[interest_offset]==q.a2||interest_buffer[interest_offset]==q.a3||interest_buffer[interest_offset]==q.a4)
 						score++;
-					else
-						if(interest_buffer[interest_offset]==q.a3)
-							score++;
-						else if(interest_buffer[interest_offset]==q.a4)
-							score++;
-	  //  		printf("%hu, ",interest_buffer[interest_offset]);
 			}
 			if(score==0) valid_person = false;
 			if(valid_person)
 			{
-				Knows* knows = &refined_knows[person_offset]	;
+				Knows* knows = &refined_knows[person_offset];
 				if(knows->n>knows_buffer_size)
 				{
-					knows_buffer_size*=knows->n;
-					knows_buffer=(unsigned short*) realloc(knows_buffer, knows_buffer_size);
+					knows_buffer_size=knows->n;
+					knows_buffer=(unsigned short*) realloc(knows_buffer, knows_buffer_size*sizeof(unsigned short));
 				}
-					int knows_offset = 0 ;
-					for(;knows_offset<knows->n;knows_offset++)
+				int knows_offset = 0 ;
+				for(;knows_offset<knows->n;knows_offset++)
+				{
+
+					interest = &refined_interests[knows_offset];                        
+					if(interest->n > interest_buffer_size2)                                                  
+					{
+						interest_buffer_size2=interest->n;                            
+						/* printf("Interest n = %hu; interest_buffer_size2 = %d \n",interest->n,interest_buffer_size2); */
+						interest_buffer2 = (unsigned short* )realloc(interest_buffer2, interest_buffer_size2*sizeof(unsigned short));
+						if (interest_buffer2 ==NULL) 
+							printf("ERROR - couldn't roallocate interest_buffer2");
+					}
+					fseek(interest_file,interest->first*sizeof(unsigned short),SEEK_SET);
+					fread(interest_buffer2, sizeof(unsigned short), interest->n, interest_file);
+
+					//   printf("Interests of person: %d\n",person_offset);
+					valid_person=false;
+					int interest_offset = 0 ; 
+					for(; interest_offset < interest->n ;interest_offset++)
+					{   
+						if(interest_buffer2[interest_offset]==q.a1)
+						{
+							valid_person=true;
+							break;
+						}      
+					} 
+					if(valid_person)
 					{
 
-						interest = &refined_interests[knows_offset];                        
-						if(interest->n > interest_buffer_size2)                                                  
+						Result r;
+						r.query_id = i+1;
+						r.score=score;
+						r.p=persons[person_offset];
+						r.f=persons[knows_offset];
+						results[current_num_results++]=r;
+						if(current_num_results>num_results)
 						{
-							interest_buffer_size2=interest->n;                            
-							printf("Interest n = %hu; interest_buffer_size2 = %d \n",interest->n,interest_buffer_size2);
-							interest_buffer2 = (unsigned short* )realloc(interest_buffer2, interest_buffer_size2);
-						}
-						fseek(interest_file,interest->first*sizeof(unsigned short),SEEK_SET);
-						fread(interest_buffer2, sizeof(unsigned short), interest->n, interest_file);
-						int interest_offset = 0 ; 
-
-						//   printf("Interests of person: %d\n",person_offset);
-						valid_person=false;
-						for(; interest_offset < interest->n ;interest_offset++)
-						{   
-							if(interest_buffer2[interest_offset]==q.a1)
-							{
-								valid_person=true;
-								break;
-							}      
-						} 
-						if(valid_person)
-						{
-							printf("%d;%d;%ld\n",person_offset,knows_offset,score);
-						}
+							num_results*=2;
+							results=(Result*)realloc(results,num_results*sizeof(Result));
+						}                  
+						/* printf("%d|%d|%lu|%lu\n",(i+1),score,persons[person_offset],persons[knows_offset]); */
 					}
+				}
 			}
 		}  
+	}
+	printf("Number of results: %d\n",current_num_results);
+	qsort(results,current_num_results,sizeof(Result),compare);
+	int results_offset;
+	for(results_offset = 0; results_offset< current_num_results; results_offset++)
+	{
+		printf("%d|%d|%lu|%lu\n",results[results_offset].query_id,results[results_offset].score,results[results_offset].p,results[results_offset].f);
 	}
 	free(interest_buffer);
 	free(interest_buffer2);
 	free(knows_buffer);
-	
-
-
-	/*fseek(persons_file,0,SEEK_END);
-	size_t persons_file_size = ftell(persons_file);
-	Person* persons  = (Person*)malloc(persons_file_size);
-	if( !persons ) {
-		fprintf(stderr, "ERROR while creating persons array");
-		exit(1);
-	}
-	fread(persons, sizeof(Person), num_persons, persons_file); 
-
-	free(persons);
-      */
 	free(queries);
+	free(persons);
+
+
+
 	fclose(persons_file);
 	fclose(refined_knows_file);
 	fclose(knows_file);
 	fclose(queries_file);
 	fclose(interest_file);
 	fclose(refined_interest_file);
-
-
-
-
 }
 
 
