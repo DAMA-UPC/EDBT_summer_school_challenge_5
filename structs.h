@@ -20,6 +20,16 @@ typedef struct {
   unsigned int    interest_first;
 } Person;
 
+typedef struct {
+  unsigned int first;
+  unsigned short n;
+} Interest;
+
+typedef struct {
+  unsigned int first;
+  unsigned short n;
+} Knows;
+
 /*typedef struct {
 	unsigned long person_id;
 	unsigned long knows_id;
