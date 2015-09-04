@@ -258,6 +258,9 @@ int main( int argc, char** argv ) {
   int num_exported_edges = 0;
   int i =0;
   for(;i < num_persons; ++i) {
+    if( i % 10000 == 0 ) {
+      printf("Read %d persons.\n",i);
+    }
     PersonIn* person = &person_buffer[i];
     unsigned int* knows_person = &in_knows[person_buffer[i].knows_first];
     knows[i].first = num_exported_edges;
