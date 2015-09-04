@@ -18,11 +18,17 @@ int compare(const void* a,const void* b)
 	int dif_score = r1->score - r2->score;
 	if(dif_score!=0)
 		return -dif_score;
-    int dif_p = r1->p-r2->p;
-	if(dif_p!=0)
-		return dif_p;
-	int dif_f = r1->f-r2->f;
-	return dif_f;
+    long dif_p = r1->p-r2->p;
+	if(dif_p<0)
+		return -1;
+	if(dif_p>0)
+		return 1;
+	long dif_f = r1->f-r2->f;
+	if(dif_f<0)
+		return -1;
+	if(dif_f>0)
+		return 1;
+	return 0;
 }
 
 int main( int argc, char** argv ) 
@@ -88,8 +94,6 @@ int main( int argc, char** argv )
 		exit(1);
 	}
 	fread(persons, sizeof(unsigned long), num_persons, persons_file); 
-
-
 
 
 	char* queries_file_name = argv[2];
@@ -189,15 +193,15 @@ int main( int argc, char** argv )
 
 
 
-	int birthday_offset;
-	int first_found =-1;
-	int last_found = -1;
+//	int birthday_offset;
+//	int first_found =-1;
+//	int last_found = -1;
 	int interest_buffer_size=20;
 	unsigned short* interest_buffer = (unsigned short*)malloc(sizeof(unsigned short)*interest_buffer_size);
 	int interest_buffer_size2=20;
 	unsigned short* interest_buffer2 = (unsigned short*)malloc(sizeof(unsigned short)*interest_buffer_size2);
 	int knows_buffer_size=20;
-	unsigned short* knows_buffer = (unsigned short*)malloc(sizeof(unsigned short)*knows_buffer_size);
+	unsigned int* knows_buffer = (unsigned int*)malloc(sizeof(unsigned int)*knows_buffer_size);
                                                                       
 	int num_results=3000;
 	int current_num_results=0;
@@ -208,7 +212,7 @@ int main( int argc, char** argv )
 		/* printf("Resolving query id: %u; date_1= %hu, date_2 = %hu\n", q.query_id,q.d1,q.d2); */
 
 
-		first_found=-1;
+/*		first_found=-1;
 		last_found = -1 ;
 		//Identificar el conjunt de persones dins el rang  
 		for(birthday_offset = 0 ; birthday_offset<num_persons; birthday_offset++)
@@ -223,91 +227,93 @@ int main( int argc, char** argv )
 		}
 		if(last_found==-1 && birthday_offset == num_persons)
 			last_found=birthday_offset-1;
+    */
 		/* printf ("First Person : %d\nSecond Person: %d\n\n",first_found, last_found); */
 		int person_offset;
 		//Per cada persona, calcular l'score
-		for (person_offset=first_found;person_offset<last_found;person_offset++)
-		{            
-			bool valid_person=true;
-			int score=0;
-			Interest* interest = &refined_interests[person_offset];                        
-			if(interest->n > interest_buffer_size)                                                  
-			{
-				interest_buffer_size=interest->n;
-				interest_buffer = (unsigned short* ) realloc ( interest_buffer, interest_buffer_size*sizeof(unsigned short));
-			}
-			fseek(interest_file,interest->first*sizeof(unsigned short),SEEK_SET);
-			fread(interest_buffer, sizeof(unsigned short), interest->n, interest_file);
-			int interest_offset = 0 ; 
+		//for (person_offset=first_found;person_offset<last_found;person_offset++)
+    for (person_offset=0;person_offset<num_persons;person_offset++)
+    {            
+      if( (birthdays[person_offset] >= q.d1) && (birthdays[person_offset] <= q.d2) ) {
+        int score=0;
+        Interest* person_interest_index = &refined_interests[person_offset];                        
+        if(person_interest_index->n > interest_buffer_size)                                                  
+        {
+          interest_buffer_size=person_interest_index->n;
+          interest_buffer = (unsigned short* ) realloc ( interest_buffer, interest_buffer_size*sizeof(unsigned short));
+        }
+        fseek(interest_file,person_interest_index->first*sizeof(unsigned short),SEEK_SET);
+        fread(interest_buffer, sizeof(unsigned short), person_interest_index->n, interest_file);
+        int interest_offset = 0 ; 
 
-			//   printf("Interests of person: %d\n",person_offset);
-			for(; interest_offset < interest->n ;interest_offset++)
-			{   
-				if(interest_buffer[interest_offset]==q.a1)
-				{
-					valid_person=false;
-					break;
-				}      
-				else
-					if(interest_buffer[interest_offset]==q.a2||interest_buffer[interest_offset]==q.a3||interest_buffer[interest_offset]==q.a4)
-						score++;
-			}
-			if(score==0) valid_person = false;
-			if(valid_person)
-			{
-				Knows* knows = &refined_knows[person_offset];
-				if(knows->n>knows_buffer_size)
-				{
-					knows_buffer_size=knows->n;
-					knows_buffer=(unsigned short*) realloc(knows_buffer, knows_buffer_size*sizeof(unsigned short));
-				}
-				int knows_offset = 0 ;
-				for(;knows_offset<knows->n;knows_offset++)
-				{
+        //   printf("Interests of person: %d\n",person_offset);
+        for(; interest_offset < person_interest_index->n ;interest_offset++)
+        {   
+          if(interest_buffer[interest_offset]==q.a1)
+          {
+            score = 0;
+            break;
+          }      
+          else if(interest_buffer[interest_offset]==q.a2 || 
+                  interest_buffer[interest_offset]==q.a3 ||
+                  interest_buffer[interest_offset]==q.a4 )
+            {
+              score++;
+            }
+        }
+        if(score)
+        {
+          Knows* knows = &refined_knows[person_offset];
+          if(knows->n>knows_buffer_size)
+          {
+            knows_buffer_size=knows->n;
+            knows_buffer=(unsigned int*) realloc(knows_buffer, knows_buffer_size*sizeof(unsigned int));
+          }
+          fseek(knows_file,knows->first*sizeof(unsigned int),SEEK_SET);
+          fread(knows_buffer, sizeof(unsigned int), knows_buffer_size, knows_file);
 
-					interest = &refined_interests[knows_offset];                        
-					if(interest->n > interest_buffer_size2)                                                  
-					{
-						interest_buffer_size2=interest->n;                            
-						/* printf("Interest n = %hu; interest_buffer_size2 = %d \n",interest->n,interest_buffer_size2); */
-						interest_buffer2 = (unsigned short* )realloc(interest_buffer2, interest_buffer_size2*sizeof(unsigned short));
-						if (interest_buffer2 ==NULL) 
-							printf("ERROR - couldn't roallocate interest_buffer2");
-					}
-					fseek(interest_file,interest->first*sizeof(unsigned short),SEEK_SET);
-					fread(interest_buffer2, sizeof(unsigned short), interest->n, interest_file);
+          int knows_offset = 0 ;
+          for(;knows_offset<knows->n;knows_offset++)
+          {
+            unsigned int other = knows_buffer[knows_offset];
+            //interest = &refined_interests[knows_offset];                        
+            Interest* other_interest_index = &refined_interests[other];                        
+            if(other_interest_index->n > interest_buffer_size2)                                                  
+            {
+              interest_buffer_size2=other_interest_index->n;                            
+              /* printf("Interest n = %hu; interest_buffer_size2 = %d \n",interest->n,interest_buffer_size2); */
+              interest_buffer2 = (unsigned short* )realloc(interest_buffer2, interest_buffer_size2*sizeof(unsigned short));
+              if (interest_buffer2 ==NULL) 
+                printf("ERROR - couldn't roallocate interest_buffer2");
+            }
+            fseek(interest_file,other_interest_index->first*sizeof(unsigned short),SEEK_SET);
+            fread(interest_buffer2, sizeof(unsigned short), other_interest_index->n, interest_file);
 
-					//   printf("Interests of person: %d\n",person_offset);
-					valid_person=false;
-					int interest_offset = 0 ; 
-					for(; interest_offset < interest->n ;interest_offset++)
-					{   
-						if(interest_buffer2[interest_offset]==q.a1)
-						{
-							valid_person=true;
-							break;
-						}      
-					} 
-					if(valid_person)
-					{
-
-						Result r;
-						r.query_id = i+1;
-						r.score=score;
-						r.p=persons[person_offset];
-						r.f=persons[knows_offset];
-						results[current_num_results++]=r;
-						if(current_num_results>num_results)
-						{
-							num_results*=2;
-							results=(Result*)realloc(results,num_results*sizeof(Result));
-						}                  
-						/* printf("%d|%d|%lu|%lu\n",(i+1),score,persons[person_offset],persons[knows_offset]); */
-					}
-				}
-			}
-		}  
-	}
+            //   printf("Interests of person: %d\n",person_offset);
+            int interest_offset = 0 ; 
+            for(; interest_offset < other_interest_index->n ;interest_offset++)
+            {   
+              if(interest_buffer2[interest_offset]==q.a1)
+              {
+                Result r;
+                r.query_id = i+1;
+                r.score=score;
+                r.p=persons[person_offset];
+                r.f=persons[knows_offset];
+                results[current_num_results++]=r;
+                if(current_num_results>=num_results)
+                {
+                  num_results*=2;
+                  results=(Result*)realloc(results,num_results*sizeof(Result));
+                }                  
+                break;
+              }      
+            } 
+          }
+        }
+      }  
+    }
+  }
 	printf("Number of results: %d\n",current_num_results);
 	qsort(results,current_num_results,sizeof(Result),compare);
 	int results_offset;
@@ -320,7 +326,6 @@ int main( int argc, char** argv )
 	free(knows_buffer);
 	free(queries);
 	free(persons);
-
 
 
 	fclose(persons_file);
