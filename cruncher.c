@@ -299,7 +299,7 @@ int main( int argc, char** argv )
                 r.query_id = i+1;
                 r.score=score;
                 r.p=persons[person_offset];
-                r.f=persons[knows_offset];
+                r.f=persons[other];
                 results[current_num_results++]=r;
                 if(current_num_results>=num_results)
                 {
