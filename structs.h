@@ -46,6 +46,8 @@ typedef struct {
 	int score;
 	unsigned long p;
 	unsigned long f;
+	int index_person;
+	int index_friend;
 } Result;
 
 #endif

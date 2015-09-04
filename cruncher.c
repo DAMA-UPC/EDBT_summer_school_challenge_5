@@ -30,6 +30,43 @@ int compare(const void* a,const void* b)
 		return 1;
 	return 0;
 }
+int sort_f(const void*a, const void* b) 
+{
+	Result* r1 = (Result*) a;
+	Result* r2 = (Result*) b;
+
+	long dif = r1->f - r2->f;
+	if(dif<0)
+		return -1;
+	if(dif > 0)
+		return 1;
+	return 0;
+}
+bool check_reprocity(Result* r, FILE* knows_file, Knows* refined_knows)
+{
+	//r->f --> r->p          ??
+	
+	int index_friend = r->index_friend;
+	Knows* knows_friend = &refined_knows[index_friend];
+
+	unsigned short n = knows_friend->n;
+
+	unsigned int* knows_buffer=(unsigned int*) malloc(n*sizeof(unsigned int));
+	fseek(knows_file,knows_friend->first*sizeof(unsigned int),SEEK_SET);
+	fread(knows_buffer, sizeof(unsigned int), n, knows_file); 
+	int knows_buffer_offset;
+	for(knows_buffer_offset = 0; knows_buffer_offset<n;knows_buffer_offset++)
+	{
+		if(knows_buffer[knows_buffer_offset]==r->index_person)
+		{
+			free(knows_buffer);
+			return true;
+		}
+	}
+
+	free(knows_buffer);
+	return false;
+}
 
 int main( int argc, char** argv ) 
 {
@@ -300,6 +337,8 @@ int main( int argc, char** argv )
                 r.score=score;
                 r.p=persons[person_offset];
                 r.f=persons[other];
+				r.index_person = person_offset;
+				r.index_friend = other;
                 results[current_num_results++]=r;
                 if(current_num_results>=num_results)
                 {
@@ -314,13 +353,30 @@ int main( int argc, char** argv )
       }  
     }
   }
-	printf("Number of results: %d\n",current_num_results);
+	bool* corrects = (bool*)malloc(current_num_results*sizeof(bool));
+	memset(corrects,0,current_num_results*sizeof(bool));
+	/* qsort(results,current_num_results,sizeof(Result),sort_f); */
 	qsort(results,current_num_results,sizeof(Result),compare);
 	int results_offset;
 	for(results_offset = 0; results_offset< current_num_results; results_offset++)
 	{
-		printf("%d|%d|%lu|%lu\n",results[results_offset].query_id,results[results_offset].score,results[results_offset].p,results[results_offset].f);
+		Result* r = &results[results_offset];
+		bool friends = check_reprocity(r,knows_file,refined_knows);
+		/* printf("ARE THEY FRIENDS? : %d\n",friends); */
+		corrects[results_offset]=friends;
 	}
+	
+
+
+	printf("Number of results: %d\n",current_num_results);
+	for(results_offset = 0; results_offset< current_num_results; results_offset++)
+	{
+		if(corrects[results_offset]) {
+			printf("%d|%d|%lu|%lu\n",results[results_offset].query_id,results[results_offset].score,results[results_offset].p,results[results_offset].f);
+		} 
+
+	}
+	free(corrects);
 	free(interest_buffer);
 	free(interest_buffer2);
 	free(knows_buffer);
