@@ -76,17 +76,26 @@ int main( int argc, char** argv ) {
   in_knows = (unsigned int*)mmap_file (in_knows_file_name, &size, &in_knows_file );
   num_knows = size / sizeof(unsigned int);
 
-  remove_diff_location(".temp_persons_file", "knows.bin");
+  remove_diff_location(".temp_persons_file", ".temp_knows_file");
 
   munmap_file(in_persons, num_persons*sizeof(Person), in_persons_file);
   munmap_file(in_knows, num_knows*sizeof(unsigned int), in_knows_file);
 
   in_persons = (Person*)mmap_file (".temp_persons_file", &size, &in_persons_file );
   num_persons = size / sizeof(Person);
-  in_knows = (unsigned int*)mmap_file ("knows.bin", &size, &in_knows_file );
+  in_knows = (unsigned int*)mmap_file (".temp_knows_file", &size, &in_knows_file );
   num_knows = size / sizeof(unsigned int);
 
-  //remove_no_reciprocal(".temp_persons_file2", ".temp_knows_file2");
+  remove_no_reciprocal(".temp_persons_file2", "knows.bin");
+
+
+  munmap_file(in_persons, num_persons*sizeof(Person), in_persons_file);
+  munmap_file(in_knows, num_knows*sizeof(unsigned int), in_knows_file);
+
+  in_persons = (Person*)mmap_file (".temp_persons_file2", &size, &in_persons_file );
+  num_persons = size / sizeof(Person);
+  in_knows = (unsigned int*)mmap_file ("knows.bin", &size, &in_knows_file );
+  num_knows = size / sizeof(unsigned int);
 
   partition_persons_file();
 
@@ -178,10 +187,10 @@ void remove_diff_location( const char* out_persons_file_name, const char* out_kn
 
 void remove_no_reciprocal( const char* out_persons_file_name, const char* out_knows_file_name ) {
 
-  printf("Removing unnecessary persons from knows file, based on location\n");
+  printf("Removing unnecessary knows with no reciprocal\n");
 
-  unsigned int* persons_new_ids = (unsigned int*)malloc(sizeof(unsigned int)*num_persons);
-  memset(persons_new_ids, 0xff, sizeof(unsigned int)*num_persons);
+  Tuple* persons_new_ids = (Tuple*)malloc(sizeof(Tuple)*num_persons);
+  memset(persons_new_ids, 0xff, sizeof(Tuple)*num_persons);
   Knows* knows = (Knows*)malloc(sizeof(Knows)*num_persons);
 
   FILE* out_knows_file = fopen(out_knows_file_name, "wb");
@@ -195,46 +204,53 @@ void remove_no_reciprocal( const char* out_persons_file_name, const char* out_kn
 
     Person* person = &in_persons[i];
     unsigned int* knows_person = &in_knows[person->knows_first];
-    if( persons_new_ids[i] == 0xffffffff )              // if id not already set
-      persons_new_ids[i] = num_touched_persons++;
     knows[i].first = num_output_knows;
     unsigned int num_output_local_knows = 0;
     for( j = 0; j < person->knows_n; ++j ) {
       unsigned int other_index = knows_person[j];
       Person* other = &in_persons[other_index];
       unsigned int* knows_other = &in_knows[other->knows_first];
-      for( k = 0; k < other->knows_n; ++k ){
-        if( knows_other[k] == i ) {
+      for(k = 0; k < other->knows_n; ++k) {
+        if(knows_other[k] == i){
           break;
         }
       }
-
-      if( k != other->knows_n ) {
-        if( persons_new_ids[other_index] == 0xffffffff ) // if id not already set
-          persons_new_ids[other_index] = num_touched_persons++;
-        fwrite(&persons_new_ids[other_index], sizeof(unsigned int), 1, out_knows_file);
+      if(k < other->knows_n) { 
+        if( persons_new_ids[other_index].new_index == 0xffffffff ) { // if id not already set
+          persons_new_ids[other_index].old_index = other_index;
+          persons_new_ids[other_index].new_index = num_touched_persons++;
+        }
+        fwrite(&persons_new_ids[other_index].new_index, sizeof(unsigned int), 1, out_knows_file);
         num_output_local_knows++;
         num_output_knows++;
-        printf("ENTRA\n");
       }
     }
     knows[i].n = num_output_local_knows;
+
+    if( persons_new_ids[i].new_index == 0xffffffff && num_output_local_knows > 0) {              // if id not already set 
+      persons_new_ids[i].old_index = i;
+      persons_new_ids[i].new_index = num_touched_persons++;
+    }
   }
   fclose(out_knows_file);
+
+  qsort(persons_new_ids, num_persons, sizeof(Tuple), tuple_comparator); 
 
   FILE* out_persons_file = fopen(out_persons_file_name, "wb");
   Person person;
   for(i = 0; i < num_persons;++i){
-    if(persons_new_ids[i] != 0xffffffff) {
-      person = in_persons[i];
-      person.knows_first = knows[i].first;
-      person.knows_n = knows[i].n;
+    if( persons_new_ids[i].new_index != 0xffffffff ) {
+      unsigned int index = persons_new_ids[i].old_index;
+      person = in_persons[index];
+      person.knows_first = knows[index].first;
+      person.knows_n = knows[index].n;
       fwrite(&person, sizeof(Person), 1, out_persons_file);
     }
   }
   fclose(out_persons_file);
   free(knows);
   free(persons_new_ids);
+
 }
 
 void partition_persons_file() {
