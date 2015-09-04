@@ -368,7 +368,7 @@ int main( int argc, char** argv )
 	
 
 
-	printf("Number of results: %d\n",current_num_results);
+	/* printf("Number of results: %d\n",current_num_results); */
 	for(results_offset = 0; results_offset< current_num_results; results_offset++)
 	{
 		if(corrects[results_offset]) {
