@@ -86,9 +86,9 @@ int main( int argc, char** argv )
 	sprintf(persons_file_name, "%s/%s", argv[1], "refined_person.bin");
 	sprintf(refined_knows_file_name, "%s/%s", argv[1], "knows_index.bin");
 	sprintf(knows_file_name, "%s/%s", argv[1], "refined_knows.bin");
-	sprintf(interest_file_name,"%s%s",argv[1],"interest.bin");
-	sprintf(birthday_file_name,"%s%s",argv[1],"birthday_attr.bin");
-	sprintf(refined_interest_file_name,"%s%s", argv[1],"interest_index.bin");
+	sprintf(interest_file_name,"%s/%s",argv[1],"interest.bin");
+	sprintf(birthday_file_name,"%s/%s",argv[1],"birthday_attr.bin");
+	sprintf(refined_interest_file_name,"%s/%s", argv[1],"interest_index.bin");
 
 	long num_persons;
 
