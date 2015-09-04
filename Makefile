@@ -1,4 +1,4 @@
-CFLAGS = -D_POSIX_SOURCE -Wall -g -I. -std=c99 
+CFLAGS = -D_POSIX_SOURCE -Wall -O3 -I. -std=c99 
 
 all: reorg reorg2 cruncher
 

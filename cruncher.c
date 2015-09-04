@@ -369,13 +369,18 @@ int main( int argc, char** argv )
 
 
 	/* printf("Number of results: %d\n",current_num_results); */
+  FILE* output_file = fopen(argv[3],"w");
+  if(!output_file)
+    printf("ERROR opening %s file\n", argv[3]);
+
 	for(results_offset = 0; results_offset< current_num_results; results_offset++)
 	{
 		if(corrects[results_offset]) {
-			printf("%d|%d|%lu|%lu\n",results[results_offset].query_id,results[results_offset].score,results[results_offset].p,results[results_offset].f);
+			fprintf(output_file, "%d|%d|%lu|%lu\n",results[results_offset].query_id,results[results_offset].score,results[results_offset].p,results[results_offset].f);
 		} 
 
 	}
+  fclose(output_file);
 	free(corrects);
 	free(interest_buffer);
 	free(interest_buffer2);
