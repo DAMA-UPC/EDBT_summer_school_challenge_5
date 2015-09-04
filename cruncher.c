@@ -83,12 +83,12 @@ int main( int argc, char** argv )
 	char interest_file_name[256];
 
 
-	sprintf(persons_file_name, "%s/%s", argv[1], "refined_person.bin");
-	sprintf(refined_knows_file_name, "%s/%s", argv[1], "knows_index.bin");
-	sprintf(knows_file_name, "%s/%s", argv[1], "refined_knows.bin");
+	sprintf(persons_file_name, "%s", "person_id.bin");
+	sprintf(refined_knows_file_name, "%s", "knows_index.bin");
+	sprintf(knows_file_name, "%s", "knows.bin");
 	sprintf(interest_file_name,"%s/%s",argv[1],"interest.bin");
-	sprintf(birthday_file_name,"%s/%s",argv[1],"birthday_attr.bin");
-	sprintf(refined_interest_file_name,"%s/%s", argv[1],"interest_index.bin");
+	sprintf(birthday_file_name,"%s","birthday.bin");
+	sprintf(refined_interest_file_name,"%s", "interest_index.bin");
 
 	long num_persons;
 
@@ -337,8 +337,8 @@ int main( int argc, char** argv )
                 r.score=score;
                 r.p=persons[person_offset];
                 r.f=persons[other];
-				r.index_person = person_offset;
-				r.index_friend = other;
+                r.index_person = person_offset;
+                r.index_friend = other;
                 results[current_num_results++]=r;
                 if(current_num_results>=num_results)
                 {
@@ -365,8 +365,6 @@ int main( int argc, char** argv )
 		/* printf("ARE THEY FRIENDS? : %d\n",friends); */
 		corrects[results_offset]=friends;
 	}
-	
-
 
 	/* printf("Number of results: %d\n",current_num_results); */
   FILE* output_file = fopen(argv[3],"w");
@@ -400,8 +398,8 @@ int main( int argc, char** argv )
 
 unsigned short getDate(char* stringDate) 
 {
-	char* s1;
-	char* s2;
+	char* s1 = NULL;
+	char* s2 = NULL;
 	char* token = strtok(stringDate, "-");
 	int i=0;
 	while( token != NULL ) 

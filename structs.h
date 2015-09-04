@@ -11,13 +11,6 @@ typedef struct {
 	unsigned short knows_n;
 	unsigned long interest_first;
 	unsigned short interest_n;
-} PersonIn;
-
-typedef struct {
-  unsigned short  birthday;
-  unsigned short  location;
-  unsigned int    knows_first;
-  unsigned int    interest_first;
 } Person;
 
 typedef struct{
